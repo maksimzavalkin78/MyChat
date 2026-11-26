@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MyChat</title>
-  <script src="https://jsdelivr.net"></script>
+  <script src="https://unpkg.com"></script>
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 0 15px; background: #f0f2f5; }
     #chat { height: 400px; overflow-y: auto; background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
     .msg { margin-bottom: 10px; padding: 8px 12px; background: #e4e6eb; border-radius: 12px; max-width: 80%; word-wrap: break-word; }
     .msg b { display: block; font-size: 0.8em; color: #555; margin-bottom: 3px; }
-    form { display: flex; gap: 8px; }
+    .row { display: flex; gap: 8px; }
     input { padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
     #username { width: 30%; }
     #text { width: 55%; }
@@ -20,38 +20,35 @@
 </head>
 <body>
   <div id="chat"></div>
-  <form id="form">
-    <input type="text" id="username" placeholder="Имя" required>
-    <input type="text" id="text" placeholder="Сообщение..." required autocomplete="off">
-    <button type="submit">➤</button>
-  </form>
+  <div class="row">
+    <input type="text" id="username" placeholder="Имя">
+    <input type="text" id="text" placeholder="Сообщение...">
+    <button type="button" id="sendBtn">➤</button>
+  </div>
 
   <script>
     const SUPABASE_URL = 'https://supabase.co';
     const SUPABASE_KEY = 'sb_publishable_OqISC5iz8dibcIuoP4D5Ng_Gl1TIctP';
-    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const chat = document.getElementById('chat');
-    const form = document.getElementById('form');
     const userInput = document.getElementById('username');
     const textInput = document.getElementById('text');
+    const sendBtn = document.getElementById('sendBtn');
 
     userInput.value = localStorage.getItem('chat_username') || '';
 
     function renderMessage(msg) {
       const div = document.createElement('div');
       div.className = 'msg';
-      const b = document.createElement('b');
-      b.textContent = msg.username;
-      const span = document.createElement('span');
-      span.textContent = msg.text;
-      div.append(b, span);
+      div.innerHTML = '<b>' + msg.username + '</b>' + msg.text;
       chat.appendChild(div);
       chat.scrollTop = chat.scrollHeight;
     }
 
     async function loadMessages() {
-      const { data } = await db.from('messages').select('*').order('created_at', { ascending: true }).limit(50);
+      const { data, error } = await db.from('messages').select('*').order('created_at', { ascending: true }).limit(50);
+      if (error) alert('Ошибка: ' + error.message);
       if (data) data.forEach(renderMessage);
     }
 
@@ -61,15 +58,20 @@
       })
       .subscribe();
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    async function sendMessage() {
       const username = userInput.value.trim();
       const text = textInput.value.trim();
       if (!username || !text) return;
 
       localStorage.setItem('chat_username', username);
       textInput.value = '';
-      await db.from('messages').insert([{ username, text }]);
+      const { error } = await db.from('messages').insert([{ username, text }]);
+      if (error) alert('Ошибка отправки: ' + error.message);
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMessage();
     });
 
     loadMessages();
